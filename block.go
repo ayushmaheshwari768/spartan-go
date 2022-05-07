@@ -89,11 +89,81 @@ func (b *Block) Contains(txId string) bool {
 }
 
 func (b *Block) AddTransaction(tx *Transaction, client *Client) bool {
+	if _, ok := b.Transactions[tx.Id()]; ok {
+		if client != nil {
+			client.log("Duplicate transaction " + tx.Id())
+		}
+		return false
+	} else if len(tx.sig) == 0 {
+		if client != nil {
+			client.log("Unsigned transaction " + tx.Id())
+		}
+		return false
+	} else if !tx.ValidSignature() {
+		if client != nil {
+			client.log("Invalid signature for transaction " + tx.Id())
+		}
+		return false
+	} else if !tx.SufficientFunds(b) {
+		if client != nil {
+			client.log("Insufficient gold for transaction " + tx.Id())
+		}
+		return false
+	}
 
+	nonce, ok := b.NextNonce[tx.From]
+	if !ok {
+		nonce = 0
+	}
+	if tx.Nonce < nonce {
+		if client != nil {
+			client.log("Replayed transaction " + tx.Id())
+		}
+		return false
+	} else if tx.Nonce > nonce {
+		if client != nil {
+			client.log("Out of order transaction " + tx.Id())
+		}
+		return false
+	}
+	b.NextNonce[tx.From] = nonce + 1
+
+	b.Transactions[tx.Id()] = tx
+	senderBalance := b.BalanceOf(tx.From)
+	b.Balances[tx.From] = senderBalance - tx.TotalOutput()
+
+	for _, output := range tx.Outputs {
+		oldBalance := b.BalanceOf(output.address)
+		b.Balances[output.address] = output.amount + oldBalance
+	}
+
+	return true
 }
 
 func (b *Block) rerun(prevBlock *Block) bool {
+	b.Balances = make(map[string]uint)
+	b.NextNonce = make(map[string]uint)
+	for key, val := range prevBlock.Balances {
+		b.Balances[key] = val
+	}
+	for key, val := range prevBlock.NextNonce {
+		b.NextNonce[key] = val
+	}
 
+	winnerBalance := b.BalanceOf(prevBlock.RewardAddr)
+	if len(prevBlock.RewardAddr) != 0 {
+		b.Balances[prevBlock.RewardAddr] = winnerBalance + prevBlock.TotalRewards()
+	}
+
+	txs := b.Transactions
+	b.Transactions = make(map[string]*Transaction)
+	for _, tx := range txs {
+		success := b.AddTransaction(tx, nil)
+		if !success {
+			return false
+		}
+	}
+	return true
 }
 
 // toJSON() isn't used for anything so I omitted it
