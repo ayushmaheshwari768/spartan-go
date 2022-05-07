@@ -19,9 +19,9 @@ type Client struct {
 	pendingReceivedTransactions map[string]*Transaction
 	blocks                      map[string]*Block
 	pendingBlocks               map[string][]*Block
-	startingBlock               *Block
-	lastBlock                   *Block
-	lastConfirmedBlock          *Block
+	StartingBlock               *Block
+	LastBlock                   *Block
+	LastConfirmedBlock          *Block
 	Address                     string
 }
 
@@ -44,8 +44,8 @@ func NewClient(cfg *Client) *Client {
 	}
 	client.Address = CalcAddress(client.key.PublicKey)
 
-	if cfg.startingBlock != nil {
-		client.setGenesisBlock(cfg.startingBlock)
+	if cfg.StartingBlock != nil {
+		client.setGenesisBlock(cfg.StartingBlock)
 	}
 
 	client.AddListener(PROOF_FOUND, client.receiveBlock)
@@ -55,17 +55,17 @@ func NewClient(cfg *Client) *Client {
 }
 
 func (c *Client) setGenesisBlock(startingBlock *Block) error {
-	if c.lastBlock != nil {
+	if c.LastBlock != nil {
 		return errors.New("Cannot set genesis block for existing blockchain")
 	}
-	c.lastConfirmedBlock = startingBlock
-	c.lastBlock = startingBlock
+	c.LastConfirmedBlock = startingBlock
+	c.LastBlock = startingBlock
 	c.blocks[startingBlock.HashVal()] = startingBlock
 	return nil
 }
 
 func (c *Client) ConfirmedBalance() uint {
-	return c.lastConfirmedBlock.BalanceOf(c.Address)
+	return c.LastConfirmedBlock.BalanceOf(c.Address)
 }
 
 func (c *Client) AvailableGold() uint {
@@ -83,7 +83,7 @@ func (c *Client) PostTransaction(outputs []TxOuput, fee ...uint) (*Transaction, 
 	}
 	totalPayments := txFee
 	for _, output := range outputs {
-		totalPayments += output.amount
+		totalPayments += output.Amount
 	}
 	if totalPayments > c.AvailableGold() {
 		return nil, errors.New("Requested " + strconv.FormatUint(uint64(totalPayments), 10) + ", but account only has " + strconv.FormatUint(uint64(c.AvailableGold()), 10))
@@ -103,7 +103,7 @@ func (c *Client) postGenericTransaction(tx *Transaction) *Transaction {
 	tx.Sign(c.key)
 	c.pendingOutgoingTransactions[tx.Id()] = tx
 	c.nonce++
-	c.Net.broadcast(POST_TRANSACTION, tx)
+	c.Net.Broadcast(POST_TRANSACTION, tx)
 	return tx
 }
 
@@ -158,8 +158,8 @@ func (c *Client) receiveBlock(block ...interface{}) {
 	}
 
 	c.blocks[b.HashVal()] = b
-	if c.lastBlock.ChainLength < b.ChainLength {
-		c.lastBlock = b
+	if c.LastBlock.ChainLength < b.ChainLength {
+		c.LastBlock = b
 		c.setLastConfirmed()
 	}
 
@@ -176,7 +176,7 @@ func (c *Client) receiveBlock(block ...interface{}) {
 
 func (c *Client) requestMissingBlock(block *Block) {
 	c.log("Asking for missing block " + block.HashVal())
-	c.Net.broadcast(MISSING_BLOCK, c.Address, block.PrevBlockHash)
+	c.Net.Broadcast(MISSING_BLOCK, c.Address, block.PrevBlockHash)
 }
 
 // msg[0] = from address
@@ -187,18 +187,18 @@ func (c *Client) provideMissingBlock(msg ...interface{}) {
 	}
 	if block, ok := c.blocks[msg[1].(string)]; ok {
 		c.log("Providing missing block " + msg[1].(string))
-		c.Net.sendMessage(msg[0].(string), PROOF_FOUND, block)
+		c.Net.SendMessage(msg[0].(string), PROOF_FOUND, block)
 	}
 }
 
 func (c *Client) resendPendingTransactions() {
 	for _, tx := range c.pendingOutgoingTransactions {
-		c.Net.broadcast(POST_TRANSACTION, tx)
+		c.Net.Broadcast(POST_TRANSACTION, tx)
 	}
 }
 
 func (c *Client) setLastConfirmed() {
-	block := c.lastBlock
+	block := c.LastBlock
 	confirmedBlockHeight := block.ChainLength - CONFIRMED_DEPTH
 	if confirmedBlockHeight < 0 {
 		confirmedBlockHeight = 0
@@ -206,10 +206,10 @@ func (c *Client) setLastConfirmed() {
 	for block.ChainLength > confirmedBlockHeight {
 		block = c.blocks[block.PrevBlockHash]
 	}
-	c.lastConfirmedBlock = block
+	c.LastConfirmedBlock = block
 
 	for txId := range c.pendingOutgoingTransactions {
-		if c.lastConfirmedBlock.Contains(txId) {
+		if c.LastConfirmedBlock.Contains(txId) {
 			delete(c.pendingOutgoingTransactions, txId)
 		}
 	}
@@ -225,13 +225,13 @@ func (c *Client) log(msg string) {
 
 func (c *Client) ShowAllBalances() {
 	c.log("Showing balances:")
-	for id, balance := range c.lastConfirmedBlock.Balances {
+	for id, balance := range c.LastConfirmedBlock.Balances {
 		c.log("	" + id + ":" + strconv.FormatUint(uint64(balance), 10))
 	}
 }
 
 func (c *Client) ShowBlockchain() {
-	block := c.lastBlock
+	block := c.LastBlock
 	log.Println("BLOCKCHAIN:")
 	for block != nil {
 		log.Println(block.HashVal())

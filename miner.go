@@ -43,7 +43,7 @@ func (m *Miner) startNewSearch(transactions ...map[string]*Transaction) {
 		txMap = transactions[0]
 	}
 
-	m.currentBlock = &Block{RewardAddr: m.Address, PrevBlock: m.lastBlock}
+	m.currentBlock = &Block{RewardAddr: m.Address, PrevBlock: m.LastBlock}
 	for id, tx := range txMap {
 		m.transactions[id] = tx
 	}
@@ -80,7 +80,7 @@ func (m *Miner) findProof(oneAndDone ...interface{}) {
 }
 
 func (m *Miner) announceProof() {
-	m.Net.broadcast(PROOF_FOUND, m.currentBlock)
+	m.Net.Broadcast(PROOF_FOUND, m.currentBlock)
 }
 
 func (m *Miner) receiveBlock(block *Block) {

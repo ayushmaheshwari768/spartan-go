@@ -133,8 +133,8 @@ func (b *Block) AddTransaction(tx *Transaction, client *Client) bool {
 	b.Balances[tx.From] = senderBalance - tx.TotalOutput()
 
 	for _, output := range tx.Outputs {
-		oldBalance := b.BalanceOf(output.address)
-		b.Balances[output.address] = output.amount + oldBalance
+		oldBalance := b.BalanceOf(output.Address)
+		b.Balances[output.Address] = output.Amount + oldBalance
 	}
 
 	return true

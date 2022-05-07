@@ -10,8 +10,8 @@ import (
 // out blockClass/transactionClass and assuming that it is Block/Transaction
 // from this package
 type Blockchain struct {
-	clientBalanceMap map[*Client]uint
-	startingBalances map[string]uint
+	ClientBalanceMap map[*Client]uint
+	StartingBalances map[string]uint
 	powTarget        *uint256.Int
 	powLeadingZeroes uint
 	coinbaseAmount   uint
@@ -39,10 +39,10 @@ var blockchain = &Blockchain{}
 var POW_TARGET, _ = uint256.FromHex("ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff")
 
 func MakeGenesis(cfg *Blockchain) (*Block, error) {
-	if cfg.clientBalanceMap == nil && cfg.startingBalances == nil {
+	if cfg.ClientBalanceMap == nil && cfg.StartingBalances == nil {
 		return &Block{}, errors.New("Must initialize clientBalanceMap XOR startingBalances")
 	}
-	if cfg.clientBalanceMap != nil && cfg.startingBalances != nil {
+	if cfg.ClientBalanceMap != nil && cfg.StartingBalances != nil {
 		return &Block{}, errors.New("You may set clientBalanceMap XOR set startingBalances, but not both")
 	}
 
@@ -50,13 +50,13 @@ func MakeGenesis(cfg *Blockchain) (*Block, error) {
 	blockchain.powTarget = POW_TARGET.Rsh(POW_TARGET, POW_LEADING_ZEROES)
 
 	var balances map[string]uint
-	if cfg.clientBalanceMap != nil {
+	if cfg.ClientBalanceMap != nil {
 		balances = make(map[string]uint)
-		for client, balance := range cfg.clientBalanceMap {
+		for client, balance := range cfg.ClientBalanceMap {
 			balances[client.Address] = balance
 		}
 	} else {
-		balances = cfg.startingBalances
+		balances = cfg.StartingBalances
 	}
 
 	g := &Block{}
@@ -65,8 +65,8 @@ func MakeGenesis(cfg *Blockchain) (*Block, error) {
 		g.Balances[addr] = balance
 	}
 
-	if cfg.clientBalanceMap != nil {
-		for client := range cfg.clientBalanceMap {
+	if cfg.ClientBalanceMap != nil {
+		for client := range cfg.ClientBalanceMap {
 			client.setGenesisBlock(g)
 		}
 	}

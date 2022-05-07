@@ -6,8 +6,8 @@ import (
 )
 
 type TxOuput struct {
-	amount  uint
-	address string
+	Amount  uint
+	Address string
 }
 
 type Transaction struct {
@@ -66,7 +66,7 @@ func (t *Transaction) SufficientFunds(block *Block) bool {
 func (t *Transaction) TotalOutput() uint {
 	totalOutput := t.Fee
 	for _, output := range t.Outputs {
-		totalOutput += output.amount
+		totalOutput += output.Amount
 	}
 	return totalOutput
 }

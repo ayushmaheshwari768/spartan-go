@@ -24,19 +24,19 @@ func NewFakeNet(cfg *FakeNet) *FakeNet {
 	return fakeNet
 }
 
-func (f *FakeNet) register(clients ...*Client) {
+func (f *FakeNet) Register(clients ...*Client) {
 	for _, client := range clients {
 		f.clients[client.Address] = client
 	}
 }
 
-func (f *FakeNet) broadcast(msg string, o ...interface{}) {
+func (f *FakeNet) Broadcast(msg string, o ...interface{}) {
 	for addr := range f.clients {
-		f.sendMessage(addr, msg, o)
+		f.SendMessage(addr, msg, o)
 	}
 }
 
-func (f *FakeNet) sendMessage(addr string, msg string, o ...interface{}) {
+func (f *FakeNet) SendMessage(addr string, msg string, o ...interface{}) {
 	client := f.clients[addr]
 	delay := math.Floor(rand.Float64() * float64(f.messageDelayMax))
 
