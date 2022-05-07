@@ -1,0 +1,4 @@
+github.com/holiman/uint256 v1.2.0 h1:gpSYcPLWGv4sG43I2mVLiDZCNDh/EpGjSk8tmtxitHM=
+github.com/holiman/uint256 v1.2.0/go.mod h1:y4ga/t+u+Xwd7CpDgZESaRcWy0I7XMlTMA25ApIH5Jw=
+github.com/vansante/go-event-emitter v1.0.2 h1:Qh/B4aM2OKyWWqToiIgS9XCf5sR8/R6vAp/rOpSuwss=
+github.com/vansante/go-event-emitter v1.0.2/go.mod h1:DC2i7ES4CtpdPHgm/BvbemeJKxKyAWSYpO24qdkqT/s=
