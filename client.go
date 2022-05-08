@@ -3,6 +3,7 @@ package spartan_go
 import (
 	"crypto/rsa"
 	"errors"
+	"fmt"
 	"log"
 	"strconv"
 	"sync"
@@ -110,12 +111,14 @@ func (c *Client) postGenericTransaction(tx *Transaction) *Transaction {
 }
 
 func (c *Client) receiveBlockHelper(b *Block) *Block {
+	// c.lock.Lock()
 	if b == nil {
 		return nil
 	}
 	if _, ok := c.blocks[b.HashVal()]; ok {
 		return nil
 	}
+	// c.lock.Unlock()
 
 	if !b.HasValidProof() && !b.IsGenesisBlock() {
 		c.log("Block " + b.HashVal() + " does not have a valid proof.")
@@ -151,7 +154,6 @@ func (c *Client) receiveBlockHelper(b *Block) *Block {
 	}
 
 	c.blocks[b.HashVal()] = b
-
 	if c.LastBlock.ChainLength < b.ChainLength {
 		c.LastBlock = b
 		c.setLastConfirmed()
@@ -231,7 +233,7 @@ func (c *Client) log(msg string) {
 	if len(c.Name) != 0 {
 		name = c.Name
 	}
-	log.Println(name + ": " + msg)
+	fmt.Println(name + ": " + msg)
 }
 
 func (c *Client) ShowAllBalances() {
