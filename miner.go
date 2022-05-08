@@ -106,8 +106,8 @@ func (m *Miner) receiveBlock(block ...interface{}) {
 }
 
 func (m *Miner) syncTransactions(nb *Block) map[string]*Transaction {
-	m.Client.lock.Lock()
-	defer m.Client.lock.Unlock()
+	m.Client.blocksLock.Lock()
+	defer m.Client.blocksLock.Unlock()
 
 	cb := m.CurrentBlock
 	cbTxs := make(map[string]*Transaction)

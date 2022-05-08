@@ -25,7 +25,7 @@ type Client struct {
 	LastBlock                   *Block
 	LastConfirmedBlock          *Block
 	Address                     string
-	lock                        sync.Mutex
+	blocksLock                  sync.Mutex
 	pendingBlocksLock           sync.Mutex
 }
 
@@ -62,6 +62,7 @@ func (c *Client) setGenesisBlock(startingBlock *Block) error {
 	if c.LastBlock != nil {
 		return errors.New("Cannot set genesis block for existing blockchain")
 	}
+
 	c.LastConfirmedBlock = startingBlock
 	c.LastBlock = startingBlock
 	c.blocks[startingBlock.HashVal()] = startingBlock
@@ -112,14 +113,12 @@ func (c *Client) postGenericTransaction(tx *Transaction) *Transaction {
 }
 
 func (c *Client) receiveBlockHelper(b *Block) *Block {
-	// c.lock.Lock()
 	if b == nil {
 		return nil
 	}
 	if _, ok := c.blocks[b.HashVal()]; ok {
 		return nil
 	}
-	// c.lock.Unlock()
 
 	if !b.HasValidProof() && !b.IsGenesisBlock() {
 		c.log("Block " + b.HashVal() + " does not have a valid proof.")

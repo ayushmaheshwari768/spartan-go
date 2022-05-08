@@ -75,15 +75,6 @@ func MakeGenesis(cfg *Blockchain) (*Block, error) {
 }
 
 // DeserializeBlock, MakeBlock and MakeTransaction are not implemented because
-// taking object-like interface{} as parameter is discouraged in GoLang. All
-// objects will take defined structs instead of the all encompassing interface{}
-
-// func DeserializeBlock(o interface{}) *Block {
-// 	if b, ok := o.(Block); ok {
-// 		return &b
-// 	}
-// }
-
-// func MakeBlock(cfg *BlockConfig) *Block {
-// 	return &Block{cfg: cfg}
-// }
+// taking object-like interface{} as parameter is discouraged in GoLang unless
+// absolutely necessary. All objects will take defined structs instead of the
+// all encompassing interface{}
