@@ -2,11 +2,14 @@ package spartan_go
 
 import (
 	"strconv"
+
+	. "github.com/vansante/go-event-emitter"
 )
 
 type Miner struct {
-	Client
-	currentBlock *Block
+	Emitter
+	Client       *Client
+	CurrentBlock *Block
 	miningRounds uint
 	transactions map[string]*Transaction
 }
@@ -19,20 +22,23 @@ func NewMiner(cfg *Client, miningRounds ...uint) *Miner {
 		rounds = NUM_ROUNDS_MINING
 	}
 	miner := &Miner{
-		Client:       *NewClient(cfg),
+		Emitter:      *NewEmitter(true),
+		Client:       NewClient(cfg),
 		miningRounds: rounds,
 		transactions: make(map[string]*Transaction),
 	}
+	miner.AddListener(START_MINING, miner.findProof)
+	miner.AddListener(POST_TRANSACTION, miner.addTransaction)
+	miner.AddListener(MISSING_BLOCK, miner.provideMissingBlock)
+	miner.AddListener(PROOF_FOUND, miner.receiveBlock)
 	return miner
 }
 
 func (m *Miner) Initialize() {
 	m.startNewSearch()
-	m.AddListener(START_MINING, m.findProof)
-	m.AddListener(POST_TRANSACTION, m.addTransaction)
-	go func() {
-		m.EmitEvent(START_MINING)
-	}()
+	// go func() {
+	m.EmitEvent(START_MINING)
+	// }()
 }
 
 func (m *Miner) startNewSearch(transactions ...map[string]*Transaction) {
@@ -43,16 +49,16 @@ func (m *Miner) startNewSearch(transactions ...map[string]*Transaction) {
 		txMap = transactions[0]
 	}
 
-	m.currentBlock = &Block{RewardAddr: m.Address, PrevBlock: m.LastBlock}
+	m.CurrentBlock = NewBlock(m.Client.Address, m.Client.LastBlock, nil)
 	for id, tx := range txMap {
 		m.transactions[id] = tx
 	}
 
 	for _, tx := range m.transactions {
-		m.currentBlock.AddTransaction(tx, &m.Client)
+		m.CurrentBlock.AddTransaction(tx, m.Client)
 	}
 	m.transactions = make(map[string]*Transaction)
-	m.currentBlock.Proof = 0
+	m.CurrentBlock.Proof = 0
 }
 
 func (m *Miner) findProof(oneAndDone ...interface{}) {
@@ -61,43 +67,49 @@ func (m *Miner) findProof(oneAndDone ...interface{}) {
 		testing = true
 	}
 
-	pausePoint := m.currentBlock.Proof + m.miningRounds
-	for m.currentBlock.Proof < pausePoint {
-		if m.currentBlock.HasValidProof() {
-			m.log("Found proof for block " + strconv.FormatUint(uint64(m.currentBlock.ChainLength), 10) + ": " + strconv.FormatUint(uint64(m.currentBlock.Proof), 10))
+	pausePoint := m.CurrentBlock.Proof + m.miningRounds
+	for m.CurrentBlock.Proof < pausePoint {
+		if m.CurrentBlock.HasValidProof() {
+			m.Client.log("Found proof for block " + strconv.FormatUint(uint64(m.CurrentBlock.ChainLength), 10) + ": " + strconv.FormatUint(uint64(m.CurrentBlock.Proof), 10))
 			m.announceProof()
-			m.receiveBlock(m.currentBlock)
+			m.receiveBlock(m.CurrentBlock)
 			break
 		}
-		m.currentBlock.Proof++
+		m.CurrentBlock.Proof++
 	}
 
 	if !testing {
-		go func() {
-			m.EmitEvent(START_MINING)
-		}()
+		// m.Client.log("mining again")
+		// go func() {
+		m.EmitEvent(START_MINING)
+		// }()
 	}
 }
 
 func (m *Miner) announceProof() {
-	m.Net.Broadcast(PROOF_FOUND, m.currentBlock)
+	m.Client.Net.Broadcast(PROOF_FOUND, m.CurrentBlock)
 }
 
-func (m *Miner) receiveBlock(block *Block) {
-	m.Client.receiveBlock(block)
-	if block == nil {
+func (m *Miner) receiveBlock(block ...interface{}) {
+	b := block[0].(*Block)
+
+	b = m.Client.receiveBlockHelper(b)
+	if b == nil {
 		return
 	}
 
-	if m.currentBlock != nil && block.ChainLength >= m.currentBlock.ChainLength {
-		m.log("Cutting over to new chain")
-		txMap := m.syncTransactions(block)
+	if m.CurrentBlock != nil && b.ChainLength >= m.CurrentBlock.ChainLength {
+		m.Client.log("Cutting over to new chain")
+		txMap := m.syncTransactions(b)
 		m.startNewSearch(txMap)
 	}
 }
 
 func (m *Miner) syncTransactions(nb *Block) map[string]*Transaction {
-	cb := m.currentBlock
+	m.Client.lock.Lock()
+	defer m.Client.lock.Unlock()
+
+	cb := m.CurrentBlock
 	cbTxs := make(map[string]*Transaction)
 	nbTxs := make(map[string]*Transaction)
 
@@ -105,7 +117,7 @@ func (m *Miner) syncTransactions(nb *Block) map[string]*Transaction {
 		for id, tx := range nb.Transactions {
 			nbTxs[id] = tx
 		}
-		nb = m.blocks[nb.PrevBlockHash]
+		nb = m.Client.blocks[nb.PrevBlockHash]
 	}
 
 	for cb != nil && cb.HashVal() != nb.HashVal() {
@@ -115,8 +127,8 @@ func (m *Miner) syncTransactions(nb *Block) map[string]*Transaction {
 		for id, tx := range nb.Transactions {
 			nbTxs[id] = tx
 		}
-		cb = m.blocks[cb.PrevBlockHash]
-		nb = m.blocks[nb.PrevBlockHash]
+		cb = m.Client.blocks[cb.PrevBlockHash]
+		nb = m.Client.blocks[nb.PrevBlockHash]
 	}
 
 	for id := range nbTxs {
@@ -128,18 +140,22 @@ func (m *Miner) syncTransactions(nb *Block) map[string]*Transaction {
 
 func (m *Miner) addTransaction(txs ...interface{}) {
 	if len(txs) != 1 {
-		m.log("addTransaction(...) requires 1 transaction parameter")
+		m.Client.log("addTransaction(...) requires 1 transaction parameter")
 		return
 	}
 	tx := txs[0].(*Transaction)
-	tx = NewTransaction(tx.From, tx.Nonce, tx.PubKey, tx.sig, tx.Fee, tx.Outputs)
-	m.transactions[tx.Id()] = tx
+	newTx := NewTransaction(tx.From, tx.Nonce, tx.PubKey, tx.sig, tx.Fee, tx.Outputs)
+	m.transactions[newTx.Id()] = newTx
+}
+
+func (m *Miner) provideMissingBlock(o ...interface{}) {
+	m.Client.provideMissingBlock(o...)
 }
 
 func (m *Miner) PostTransaction(outputs []TxOuput, fee ...uint) {
 	tx, err := m.Client.PostTransaction(outputs, fee...)
 	if err != nil {
-		m.log(err.Error())
+		m.Client.log(err.Error())
 		return
 	}
 	m.addTransaction(tx)

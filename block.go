@@ -2,6 +2,7 @@ package spartan_go
 
 import (
 	"fmt"
+	"sync"
 	"time"
 
 	"github.com/holiman/uint256"
@@ -19,16 +20,16 @@ type Block struct {
 	Transactions   map[string]*Transaction
 	ChainLength    uint
 	Timestamp      time.Time
+	lock           sync.Mutex
 }
 
-func NewBlock(rewardAddr string, prevBlock *Block, target *uint256.Int, coinbaseReward uint) *Block {
+func NewBlock(rewardAddr string, prevBlock *Block, target *uint256.Int, coinbaseReward ...uint) *Block {
 	newBlock := &Block{}
-	newBlock.Target = target
 	newBlock.RewardAddr = rewardAddr
-	newBlock.CoinbaseReward = coinbaseReward
 	newBlock.Balances = make(map[string]uint)
 	newBlock.NextNonce = make(map[string]uint)
 	newBlock.Transactions = make(map[string]*Transaction)
+
 	if prevBlock != nil {
 		newBlock.PrevBlockHash = prevBlock.HashVal()
 		newBlock.ChainLength = prevBlock.ChainLength + 1
@@ -45,6 +46,19 @@ func NewBlock(rewardAddr string, prevBlock *Block, target *uint256.Int, coinbase
 	} else {
 		newBlock.ChainLength = 0
 	}
+
+	if target != nil {
+		newBlock.Target = target
+	} else {
+		newBlock.Target = POW_TARGET
+	}
+
+	if coinbaseReward != nil {
+		newBlock.CoinbaseReward = coinbaseReward[0]
+	} else {
+		newBlock.CoinbaseReward = COINBASE_AMT_ALLOWED
+	}
+
 	newBlock.Timestamp = time.Now()
 	return newBlock
 }
@@ -55,11 +69,21 @@ func (b *Block) IsGenesisBlock() bool {
 
 func (b *Block) HasValidProof() bool {
 	h := Hash(b.Serialize(), "")
-	n, _ := uint256.FromHex(h)
+
+	// remove leading zeroes because uint256.FromHex doesn't like those
+	for h[0] == '0' {
+		h = h[1:]
+	}
+
+	n, _ := uint256.FromHex("0x" + h)
 	return n.Cmp(b.Target) < 0
 }
 
 func (b *Block) Serialize() string {
+	// it took 2 whole days of debugging to find out reading the maps in this block (part of
+	// Sprintf used below) while editing the block in another thread was causing concurrency issues
+	b.lock.Lock()
+	defer b.lock.Unlock()
 	return fmt.Sprintf("%+v", b)
 }
 

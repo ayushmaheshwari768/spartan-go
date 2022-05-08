@@ -5,6 +5,7 @@ import (
 	"errors"
 	"log"
 	"strconv"
+	"sync"
 
 	. "github.com/vansante/go-event-emitter"
 )
@@ -23,6 +24,7 @@ type Client struct {
 	LastBlock                   *Block
 	LastConfirmedBlock          *Block
 	Address                     string
+	lock                        sync.Mutex
 }
 
 func NewClient(cfg *Client) *Client {
@@ -107,25 +109,17 @@ func (c *Client) postGenericTransaction(tx *Transaction) *Transaction {
 	return tx
 }
 
-func (c *Client) receiveBlock(block ...interface{}) {
-	if len(block) != 1 {
-		c.log("receiveBlock(...) is only supposed to receive 1 block")
-		return
-	}
-
-	b := block[0].(*Block)
+func (c *Client) receiveBlockHelper(b *Block) *Block {
 	if b == nil {
-		return
+		return nil
 	}
 	if _, ok := c.blocks[b.HashVal()]; ok {
-		b = nil
-		return
+		return nil
 	}
 
 	if !b.HasValidProof() && !b.IsGenesisBlock() {
 		c.log("Block " + b.HashVal() + " does not have a valid proof.")
-		b = nil
-		return
+		return nil
 	}
 
 	prevBlock, ok := c.blocks[b.PrevBlockHash]
@@ -146,18 +140,18 @@ func (c *Client) receiveBlock(block ...interface{}) {
 			stuckBlocks = append(stuckBlocks, b)
 		}
 		c.pendingBlocks[b.PrevBlockHash] = stuckBlocks
-		b = nil
-		return
+		return nil
 	}
 
 	if !b.IsGenesisBlock() {
-		if !b.rerun(prevBlock) {
-			b = nil
-			return
+		success := b.rerun(prevBlock)
+		if !success {
+			return nil
 		}
 	}
 
 	c.blocks[b.HashVal()] = b
+
 	if c.LastBlock.ChainLength < b.ChainLength {
 		c.LastBlock = b
 		c.setLastConfirmed()
@@ -168,10 +162,23 @@ func (c *Client) receiveBlock(block ...interface{}) {
 		unstuckBlocks = append(unstuckBlocks, pBlocks...)
 	}
 	delete(c.pendingBlocks, b.HashVal())
+
 	for _, unstuckBlock := range unstuckBlocks {
 		c.log("Processing unstuck block " + unstuckBlock.HashVal())
 		c.receiveBlock(unstuckBlock)
 	}
+
+	return b
+}
+
+func (c *Client) receiveBlock(block ...interface{}) {
+	if len(block) != 1 {
+		c.log("receiveBlock(...) is only supposed to receive 1 block")
+		return
+	}
+
+	b := block[0].(*Block)
+	c.receiveBlockHelper(b)
 }
 
 func (c *Client) requestMissingBlock(block *Block) {
@@ -208,10 +215,14 @@ func (c *Client) setLastConfirmed() {
 	}
 	c.LastConfirmedBlock = block
 
+	toDelete := make([]string, 0)
 	for txId := range c.pendingOutgoingTransactions {
 		if c.LastConfirmedBlock.Contains(txId) {
-			delete(c.pendingOutgoingTransactions, txId)
+			toDelete = append(toDelete, txId)
 		}
+	}
+	for _, txId := range toDelete {
+		delete(c.pendingOutgoingTransactions, txId)
 	}
 }
 

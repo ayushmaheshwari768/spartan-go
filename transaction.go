@@ -48,9 +48,12 @@ func (t *Transaction) Id() string {
 }
 
 func (t *Transaction) Sign(privKey *rsa.PrivateKey) {
-	if sig, err := Sign(privKey, t.Id()); err != nil {
-		t.sig = sig
+	sig, err := Sign(privKey, t.Id())
+	if err != nil {
+		fmt.Println(err.Error())
+		return
 	}
+	t.sig = sig
 }
 
 func (t *Transaction) ValidSignature() bool {

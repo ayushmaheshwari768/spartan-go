@@ -36,7 +36,7 @@ const (
 )
 
 var blockchain = &Blockchain{}
-var POW_TARGET, _ = uint256.FromHex("ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff")
+var POW_TARGET, _ = uint256.FromHex("0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff")
 
 func MakeGenesis(cfg *Blockchain) (*Block, error) {
 	if cfg.ClientBalanceMap == nil && cfg.StartingBalances == nil {
@@ -59,7 +59,7 @@ func MakeGenesis(cfg *Blockchain) (*Block, error) {
 		balances = cfg.StartingBalances
 	}
 
-	g := &Block{}
+	g := NewBlock("", nil, nil)
 	g.Balances = make(map[string]uint)
 	for addr, balance := range balances {
 		g.Balances[addr] = balance
