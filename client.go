@@ -26,6 +26,7 @@ type Client struct {
 	LastConfirmedBlock          *Block
 	Address                     string
 	lock                        sync.Mutex
+	pendingBlocksLock           sync.Mutex
 }
 
 func NewClient(cfg *Client) *Client {
@@ -127,6 +128,7 @@ func (c *Client) receiveBlockHelper(b *Block) *Block {
 
 	prevBlock, ok := c.blocks[b.PrevBlockHash]
 	if !ok && !b.IsGenesisBlock() {
+		c.pendingBlocksLock.Lock()
 		stuckBlocks, ok := c.pendingBlocks[b.PrevBlockHash]
 		if !ok {
 			c.requestMissingBlock(b)
@@ -143,6 +145,7 @@ func (c *Client) receiveBlockHelper(b *Block) *Block {
 			stuckBlocks = append(stuckBlocks, b)
 		}
 		c.pendingBlocks[b.PrevBlockHash] = stuckBlocks
+		c.pendingBlocksLock.Unlock()
 		return nil
 	}
 
@@ -159,11 +162,13 @@ func (c *Client) receiveBlockHelper(b *Block) *Block {
 		c.setLastConfirmed()
 	}
 
+	c.pendingBlocksLock.Lock()
 	unstuckBlocks := make([]*Block, 0)
 	if pBlocks, ok := c.pendingBlocks[b.HashVal()]; ok {
 		unstuckBlocks = append(unstuckBlocks, pBlocks...)
 	}
 	delete(c.pendingBlocks, b.HashVal())
+	c.pendingBlocksLock.Unlock()
 
 	for _, unstuckBlock := range unstuckBlocks {
 		c.log("Processing unstuck block " + unstuckBlock.HashVal())

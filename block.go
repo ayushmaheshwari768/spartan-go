@@ -85,13 +85,9 @@ func (b *Block) HasValidProof() bool {
 }
 
 func (b *Block) Serialize() string {
-	// it took 2 whole days of debugging to find out reading the maps in this block (part of
-	// Sprintf used below) while editing the block in another thread was causing concurrency issues
-	// b.lock.Lock()
-	// defer b.lock.Unlock()
-	// return fmt.Sprintf("%+v", b)
-	// return Jsonify(b)
-	// return b.RewardAddr + "ffff"
+	if b == nil {
+		return ""
+	}
 	return b.RewardAddr + b.PrevBlockHash + strconv.FormatUint(uint64(b.Proof), 10)
 }
 

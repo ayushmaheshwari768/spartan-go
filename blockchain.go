@@ -27,7 +27,7 @@ const (
 
 	NUM_ROUNDS_MINING = uint(2000)
 
-	POW_LEADING_ZEROES = uint(20)
+	POW_LEADING_ZEROES = uint(19)
 
 	COINBASE_AMT_ALLOWED = uint(25)
 	DEFAULT_TX_FEE       = uint(1)
