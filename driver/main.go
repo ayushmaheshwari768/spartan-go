@@ -58,17 +58,23 @@ func main() {
 	fmt.Println("Alice is transferring 40 gold to " + bob.Address)
 	alice.PostTransaction([]TxOuput{{Amount: 40, Address: bob.Address}})
 
-	// time.AfterFunc(time.Second*time.Duration(2), func() {
+	fmt.Println("Charlie is transferring 40 gold to " + bob.Address)
+	charlie.PostTransaction([]TxOuput{{Amount: 40, Address: bob.Address}})
+
+	// Invalid because Charlie has 26 gold after last transaction
+	fmt.Println("Charlie is transferring 30 gold to " + bob.Address)
+	charlie.PostTransaction([]TxOuput{{Amount: 30, Address: bob.Address}})
+
 	time.Sleep(time.Duration(2) * time.Second)
+
 	fmt.Println()
 	fmt.Println("***Starting a late-to-the-party miner***")
 	fmt.Println()
 	fakeNet.RegisterMiners(donald)
 	donald.Initialize()
-	// })
 
 	time.Sleep(time.Duration(3) * time.Second)
-	// time.AfterFunc(time.Second*time.Duration(5), func() {
+
 	fmt.Println()
 	fmt.Println("Minnie has a chain of length " + strconv.FormatUint(uint64(minnie.CurrentBlock.ChainLength), 10))
 
