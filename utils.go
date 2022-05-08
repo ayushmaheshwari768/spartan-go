@@ -7,6 +7,7 @@ import (
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"log"
 )
@@ -18,6 +19,7 @@ func Hash(o interface{}, encoding string) string {
 	}
 	hash := sha256.New()
 	hash.Write([]byte(fmt.Sprintf("%v", o)))
+	// hash.Write([]byte(Jsonify(o)))
 	bytes := hash.Sum(nil)
 	if encoding == "base64" {
 		return base64.StdEncoding.EncodeToString(bytes)
@@ -67,4 +69,9 @@ func CalcAddress(pubKey rsa.PublicKey) string {
 
 func AddressMatchesKey(addr string, pubKey rsa.PublicKey) bool {
 	return addr == CalcAddress(pubKey)
+}
+
+func Jsonify(a interface{}) string {
+	output, _ := json.MarshalIndent(a, "", "  ")
+	return string(output)
 }

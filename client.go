@@ -165,7 +165,7 @@ func (c *Client) receiveBlockHelper(b *Block) *Block {
 
 	for _, unstuckBlock := range unstuckBlocks {
 		c.log("Processing unstuck block " + unstuckBlock.HashVal())
-		c.receiveBlock(unstuckBlock)
+		c.receiveBlockHelper(unstuckBlock)
 	}
 
 	return b

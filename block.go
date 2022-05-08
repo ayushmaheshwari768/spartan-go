@@ -1,7 +1,7 @@
 package spartan_go
 
 import (
-	"fmt"
+	"strconv"
 	"sync"
 	"time"
 
@@ -24,6 +24,11 @@ type Block struct {
 }
 
 func NewBlock(rewardAddr string, prevBlock *Block, target *uint256.Int, coinbaseReward ...uint) *Block {
+	if prevBlock != nil {
+		prevBlock.lock.Lock()
+		defer prevBlock.lock.Unlock()
+	}
+
 	newBlock := &Block{}
 	newBlock.RewardAddr = rewardAddr
 	newBlock.Balances = make(map[string]uint)
@@ -68,7 +73,7 @@ func (b *Block) IsGenesisBlock() bool {
 }
 
 func (b *Block) HasValidProof() bool {
-	h := Hash(b.Serialize(), "")
+	h := b.HashVal()
 
 	// remove leading zeroes because uint256.FromHex doesn't like those
 	for h[0] == '0' {
@@ -82,9 +87,12 @@ func (b *Block) HasValidProof() bool {
 func (b *Block) Serialize() string {
 	// it took 2 whole days of debugging to find out reading the maps in this block (part of
 	// Sprintf used below) while editing the block in another thread was causing concurrency issues
-	b.lock.Lock()
-	defer b.lock.Unlock()
-	return fmt.Sprintf("%+v", b)
+	// b.lock.Lock()
+	// defer b.lock.Unlock()
+	// return fmt.Sprintf("%+v", b)
+	// return Jsonify(b)
+	// return b.RewardAddr + "ffff"
+	return b.RewardAddr + b.PrevBlockHash + strconv.FormatUint(uint64(b.Proof), 10)
 }
 
 func (b *Block) HashVal() string {
@@ -165,6 +173,9 @@ func (b *Block) AddTransaction(tx *Transaction, client *Client) bool {
 }
 
 func (b *Block) rerun(prevBlock *Block) bool {
+	b.lock.Lock()
+	defer b.lock.Unlock()
+
 	b.Balances = make(map[string]uint)
 	b.NextNonce = make(map[string]uint)
 	for key, val := range prevBlock.Balances {
